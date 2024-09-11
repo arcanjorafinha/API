@@ -13,12 +13,10 @@ const upload = multer(uploadConfig.MULTER);
 
 platesRoutes.use(ensureAuthenticated);
 
-// Rotas que requerem um usuário com o papel 'admin'
-platesRoutes.post('/', ensureUserIsAdmin('admin'), platesController.create);
+platesRoutes.post('/', ensureUserIsAdmin('admin'), upload.single('image'), platesController.create);
 platesRoutes.put('/:id', ensureUserIsAdmin('admin'), upload.single('image'), platesController.update);
 platesRoutes.delete('/:id', ensureUserIsAdmin('admin'), platesController.delete);
 
-// Rotas "customer"
 platesRoutes.get('/:id', platesController.show);
 platesRoutes.get('/', platesController.index);
 platesRoutes.patch('/image/:id', upload.single('image'), platesImgController.update);

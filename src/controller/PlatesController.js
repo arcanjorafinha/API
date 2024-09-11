@@ -1,9 +1,11 @@
 const knex = require("../database/knex")
 const AppError = require("../utils/AppError");
+const DiskStorage = require("../providers/DiskStorage");
 
 class PlatesController {
     async create(request, response) {
         const { title, description, ingredients, price, category } = request.body;
+        const imageFile = request.file;
 
         const checkPlateExists = await knex('plates').where('title', title).first();
 
@@ -11,11 +13,19 @@ class PlatesController {
             throw new AppError('Este prato já está cadastrado.');
         }
 
+        const diskStorage = new DiskStorage();
+        let imageFilename;
+
+        if (imageFile) {
+            imageFilename = await diskStorage.saveFile(imageFile.filename);
+        }
+
         const [plates_id] = await knex("plates").insert({
             title,
             description,
             price,
             category,
+            image: imageFilename
         });
 
         if (ingredients) {
@@ -32,7 +42,7 @@ class PlatesController {
 
     async update(req, res) {
         const { id } = req.params;
-        const { title, description, category, price } = req.body;
+        const { title, description, category, price, ingredients } = req.body; // Adicionei 'ingredients'
         const imageFile = req.file;
 
         const plate = await knex('plates').where('id', id).first();
@@ -48,9 +58,8 @@ class PlatesController {
 
         if (imageFile) {
             const imageFilename = imageFile.filename;
-
+            const diskStorage = new DiskStorage();
             const newFilename = await diskStorage.saveFile(imageFilename);
-
             plate.image = newFilename;
         }
 
@@ -62,8 +71,22 @@ class PlatesController {
             image: plate.image
         });
 
+        // Atualizando os ingredientes
+        if (ingredients) {
+            // Remover os ingredientes existentes
+            await knex('ingredients').where('plates_id', id).delete();
+
+            // Adicionar os novos ingredientes
+            const ingredientsInsert = ingredients.map(ingredient => ({
+                name: ingredient,
+                plates_id: id,
+            }));
+            await knex('ingredients').insert(ingredientsInsert);
+        }
+
         return res.json(plate);
     }
+
 
     async show(request, response) {
         const { id } = request.params;
@@ -132,7 +155,7 @@ class PlatesController {
             };
         });
 
-        return res.status(200).json(platesWithIngredients);
+        return response.status(200).json(platesWithIngredients);
     }
 };
 module.exports = PlatesController;
